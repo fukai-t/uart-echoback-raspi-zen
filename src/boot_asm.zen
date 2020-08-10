@@ -1,0 +1,30 @@
+comptime {
+    asm (
+\\// To keep this in the first portion of the binary.
+\\.section ".text.boot"
+\\
+\\// Make _start global.
+\\.globl _start
+\\//Entry point for the kenrel.
+\\//r15 -> should begin execution at 0x0080000.
+\\// r0 -> 0x00000000
+\\// r1 -> 0x00000C42
+\\// r2 -> 0x00000100 - start of ATAGS
+\\// preserve these registers as argument for kernel_main
+\\
+\\_start:
+\\        mrs x1, mpidr_el1
+\\        and x1, x1, #3
+\\        cbz x1, 2f
+\\hlt:
+\\        b   hlt
+\\2:
+\\        // Setup the stack.
+\\        mov sp, #0x0080000
+\\
+\\        // Call kernel_main
+\\        bl kernel_main
+\\
+\\        b .
+    );
+}

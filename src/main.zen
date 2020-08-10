@@ -1,0 +1,68 @@
+inline fn mmio_write(reg: u32, data: u32) void {
+    const _reg_addr: usize = @intCast (usize, reg);
+    // Note: Require 'mut' keyword
+    const _reg_ptr: *mut volatile u32 = @intToPtr(*mut volatile u32, _reg_addr);
+    _reg_ptr.* = data;
+}
+
+inline fn mmio_read (reg: u32) u32 {
+    const _reg_addr: usize = @intCast (usize, reg);
+    const _reg_ptr: *volatile u32 = @intToPtr(*u32, _reg_addr);
+    return _reg_ptr.*;
+}
+
+// The base address for UART.
+const UART0_BASE: u32 = 0x3F201000;     // for raspi2 & 3, 0x20201000 for raspi1
+// The offsets for reach register for the UART.
+const UART0_DR: u32 = (UART0_BASE + 0x00);
+const UART0_FR: u32 = (UART0_BASE + 0x18);
+
+
+fn __uart_putc(c: u8) void {
+    // Note: The condition for while loop must be bool.
+    while ((mmio_read (UART0_FR) & (1 << 5) != 0)) {}
+    mmio_write (UART0_DR, c);
+}
+
+fn uart_putc(c: u8) void {
+    const LastChar = struct {
+        var c: u8 = 0;
+    };
+
+    if (LastChar.c != '\r' or c != '\n') {
+        __uart_putc (c);
+    }
+
+    // \r --> \r\n
+    if (c == '\r') {
+        __uart_putc ('\n');
+    }
+
+    LastChar.c = c;
+}
+
+fn uart_getc() u8 {
+    // Note: The condition for while loop must be bool.
+    while ((mmio_read (UART0_FR) & (1 << 4)) != 0) {}
+    return @truncate(u8, mmio_read (UART0_DR));
+}
+
+// Note: Arguments of function are always imutable
+// Note: Use slice instead of pointer
+fn uart_puts(str: []u8) void {
+    var i: i32 = 0;
+    // Note: Zen's for loop is much different from that of C language
+    for (str) |c| {
+        uart_putc (c);
+    }
+}
+
+// Note: export
+export fn kernel_main (r0: u32, r1: u32, atags: u32) void {
+
+    uart_puts ("Hello, kernel World with Zen!\n");
+
+    while(true) {
+        uart_putc (uart_getc ());
+    }
+}
